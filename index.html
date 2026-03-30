@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RC Track · Reporte de Kilometraje</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #0f1117;
+      --paper: #f5f2eb;
+      --accent: #1a3c5e;
+      --accent2: #c8914a;
+      --muted: #7a7a7a;
+      --line: #d6d0c4;
+      --green: #2d6a4f;
+      --red: #c0392b;
+      --card: #fffdf8;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--paper);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 28px 48px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .logo-icon {
+      width: 44px; height: 44px;
+      background: var(--accent2);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; flex-shrink: 0;
+    }
+    .logo-text { display: flex; flex-direction: column; }
+    .logo-text strong {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.6rem; letter-spacing: .5px; line-height: 1;
+    }
+    .logo-text span { font-size: .72rem; letter-spacing: 2.5px; text-transform: uppercase; opacity: .65; margin-top: 2px; }
+
+    /* ── UPLOAD ZONE ── */
+    #upload-zone {
+      max-width: 680px;
+      margin: 60px auto;
+      text-align: center;
+      padding: 0 24px;
+    }
+    #upload-zone h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2rem;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    #upload-zone p { color: var(--muted); font-size: .95rem; margin-bottom: 36px; }
+
+    .drop-area {
+      border: 2px dashed var(--line);
+      border-radius: 16px;
+      padding: 56px 32px;
+      background: var(--card);
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      position: relative;
+    }
+    .drop-area:hover, .drop-area.drag-over {
+      border-color: var(--accent2);
+      background: #fff9f0;
+    }
+    .drop-icon { font-size: 3rem; margin-bottom: 14px; display: block; }
+    .drop-area h2 { font-size: 1.1rem; font-weight: 600; color: var(--accent); margin-bottom: 6px; }
+    .drop-area small { color: var(--muted); font-size: .82rem; }
+    #file-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 28px;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .9rem; font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: transform .15s, box-shadow .15s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.12); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-gold   { background: var(--accent2); color: #fff; }
+    .btn-outline { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+
+    /* ── REPORT ── */
+    #report-section { display: none; padding: 0 32px 60px; max-width: 960px; margin: 0 auto; }
+
+    .report-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 20px 0 28px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 36px;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .toolbar-left h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.5rem; color: var(--accent);
+    }
+    .toolbar-left span { color: var(--muted); font-size: .82rem; display: block; margin-top: 2px; }
+    .toolbar-right { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* Period badge */
+    .period-block {
+      display: flex; gap: 12px; margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .period-pill {
+      display: inline-flex; flex-direction: column;
+      background: var(--accent); color: #fff;
+      border-radius: 12px; padding: 10px 22px;
+      min-width: 180px;
+    }
+    .period-pill .pill-label {
+      font-size: .65rem; letter-spacing: 2px; text-transform: uppercase;
+      opacity: .6; margin-bottom: 3px;
+    }
+    .period-pill .pill-value {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1rem; line-height: 1.2;
+    }
+
+    /* Vehicle card */
+    .vehicle-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,.04);
+      page-break-inside: avoid;
+    }
+    .vehicle-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 28px;
+      background: var(--accent);
+      color: #fff;
+    }
+    .vehicle-name {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.25rem; letter-spacing: .3px;
+    }
+    .vehicle-total {
+      font-family: 'DM Mono', monospace;
+      font-size: 1.05rem; font-weight: 500;
+    }
+    .vehicle-total span { font-size: .7rem; opacity: .7; text-transform: uppercase; letter-spacing: 1px; display: block; text-align: right; }
+
+    /* Daily rows */
+    .daily-table { width: 100%; border-collapse: collapse; }
+    .daily-table thead tr {
+      background: #f0ece3;
+      border-bottom: 2px solid var(--line);
+    }
+    .daily-table thead th {
+      padding: 10px 28px;
+      text-align: left;
+      font-size: .72rem;
+      font-weight: 600;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .daily-table thead th:last-child { text-align: right; }
+    .daily-table tbody tr {
+      border-bottom: 1px solid var(--line);
+      transition: background .12s;
+    }
+    .daily-table tbody tr:last-child { border-bottom: none; }
+    .daily-table tbody tr:hover { background: #faf7f2; }
+    .daily-table td {
+      padding: 13px 28px;
+      font-size: .9rem;
+    }
+    .daily-table td.date-col {
+      font-family: 'DM Mono', monospace;
+      color: var(--accent); font-size: .85rem;
+    }
+    .daily-table td.km-col {
+      text-align: right;
+      font-family: 'DM Mono', monospace;
+      font-size: .92rem; font-weight: 500;
+    }
+    .km-bar-wrap { display: flex; align-items: center; gap: 10px; }
+    .km-bar {
+      flex: 1; height: 4px; background: var(--line);
+      border-radius: 2px; overflow: hidden;
+      min-width: 40px; max-width: 120px;
+    }
+    .km-bar-fill {
+      height: 100%; background: var(--accent2);
+      border-radius: 2px; transition: width .4s;
+    }
+
+    /* Summary row */
+    .summary-row td {
+      padding: 12px 28px;
+      background: #f0ece3;
+      font-size: .85rem;
+    }
+    .summary-label {
+      font-weight: 600; color: var(--accent);
+      letter-spacing: .3px;
+    }
+    .summary-km {
+      text-align: right;
+      font-family: 'DM Mono', monospace;
+      font-weight: 600; color: var(--accent);
+      font-size: .95rem;
+    }
+
+    /* Fleet summary */
+    .fleet-summary {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 16px;
+      padding: 28px 36px;
+      margin-bottom: 32px;
+      display: flex; gap: 40px; flex-wrap: wrap;
+      align-items: center;
+    }
+    .fleet-stat { display: flex; flex-direction: column; }
+    .fleet-stat .num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2rem; line-height: 1;
+    }
+    .fleet-stat .lbl {
+      font-size: .72rem; letter-spacing: 1.5px;
+      text-transform: uppercase; opacity: .65; margin-top: 3px;
+    }
+    .fleet-divider { width: 1px; background: rgba(255,255,255,.2); align-self: stretch; }
+
+    /* Error state */
+    .error-msg {
+      background: #fdecea; border: 1px solid #e0a0a0;
+      color: var(--red); border-radius: 10px;
+      padding: 14px 20px; font-size: .9rem; margin: 20px 0;
+    }
+
+    /* ── PRINT ── */
+    @media print {
+      body { background: #fff; }
+      header { background: var(--accent) !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .report-toolbar, #upload-zone { display: none !important; }
+      #report-section { display: block !important; padding: 0 16px; }
+      .vehicle-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .fleet-summary { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+
+    .fade-in {
+      animation: fadeUp .35s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo-icon">📍</div>
+  <div class="logo-text">
+    <strong>JV Track</strong>
+    <span>Reporte de Kilometraje GPS</span>
+  </div>
+</header>
+
+<!-- UPLOAD -->
+<div id="upload-zone">
+  <h1>Embellecedor de Reportes</h1>
+  <p>Cargá tu archivo Excel de estadísticas de kilometraje y generá un reporte elegante listo para imprimir o exportar a PDF.</p>
+
+  <div class="drop-area" id="drop-area">
+    <input type="file" id="file-input" accept=".xlsx,.xls" />
+    <span class="drop-icon">📊</span>
+    <h2>Arrastrá tu archivo Excel aquí</h2>
+    <small>Formatos soportados: .xlsx · .xls</small>
+  </div>
+
+  <div id="upload-error" class="error-msg" style="display:none;"></div>
+</div>
+
+<!-- REPORT -->
+<div id="report-section">
+  <div class="report-toolbar">
+    <div class="toolbar-left">
+      <h2>Reporte Semanal</h2>
+      <span id="report-subtitle">Estadística de Kilometraje</span>
+    </div>
+    <div class="toolbar-right">
+      <button class="btn btn-outline" id="btn-reset">↩ Nuevo archivo</button>
+      <button class="btn btn-gold" id="btn-pdf">⬇ Exportar PDF</button>
+    </div>
+  </div>
+
+  <div id="period-display"></div>
+  <div id="fleet-summary-box"></div>
+  <div id="vehicles-container"></div>
+</div>
+
+<script>
+  // ── Drag & Drop ──
+  const dropArea = document.getElementById('drop-area');
+  const fileInput = document.getElementById('file-input');
+
+  dropArea.addEventListener('dragover', e => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+  dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+  dropArea.addEventListener('drop', e => {
+    e.preventDefault();
+    dropArea.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) processFile(f);
+  });
+  fileInput.addEventListener('change', () => { if (fileInput.files[0]) processFile(fileInput.files[0]); });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    document.getElementById('report-section').style.display = 'none';
+    document.getElementById('upload-zone').style.display = 'block';
+    fileInput.value = '';
+  });
+
+  document.getElementById('btn-pdf').addEventListener('click', () => window.print());
+
+  // ── Process ──
+  function processFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        parseAndRender(rows);
+      } catch(err) {
+        showError('No se pudo leer el archivo. Asegurate de subir un Excel válido.');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('upload-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function parseAndRender(rows) {
+    // Find period from row 2 (index 1)
+    let period = '';
+    for (let r of rows) {
+      const line = r.join(' ');
+      if (line.includes('Fecha de las estadísticas') || line.includes('stadística')) {
+        const m = line.match(/(\d{4}-\d{2}-\d{2}[\s\S]*?\d{4}-\d{2}-\d{2}[^\s]*)/);
+        if (m) period = m[1].replace(/\s+/g,' ').trim();
+        if (!period) period = line.replace(/Fecha de las estadísticas[:\s]*/i,'').trim();
+        break;
+      }
+    }
+
+    // Find header row (contains "Nombre del dispositivo" or "fecha" etc)
+    let headerIdx = -1;
+    let colDevice = -1, colDate = -1, colKm = -1;
+
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i].map(c => String(c).toLowerCase());
+      const dIdx = r.findIndex(c => c.includes('nombre') && c.includes('dispositivo'));
+      if (dIdx >= 0) {
+        headerIdx = i;
+        colDevice = dIdx;
+        colDate = r.findIndex(c => c.includes('fecha'));
+        colKm = r.findIndex(c => c.includes('kilometraje') || c.includes('km'));
+        break;
+      }
+    }
+
+    if (headerIdx < 0) {
+      showError('No se encontró la fila de encabezados. Verifica el formato del archivo.');
+      return;
+    }
+
+    // Parse data rows
+    const records = [];
+    for (let i = headerIdx + 1; i < rows.length; i++) {
+      const r = rows[i];
+      const dev = String(r[colDevice] || '').trim();
+      const dt  = String(r[colDate]   || '').trim();
+      const km  = parseFloat(r[colKm]);
+      if (dev && dt && !isNaN(km)) {
+        records.push({ device: dev, date: dt, km });
+      }
+    }
+
+    if (!records.length) {
+      showError('No se encontraron datos en el archivo.');
+      return;
+    }
+
+    // Group by device
+    const grouped = {};
+    for (const rec of records) {
+      if (!grouped[rec.device]) grouped[rec.device] = [];
+      grouped[rec.device].push(rec);
+    }
+
+    // Render
+    renderReport(period, grouped);
+  }
+
+  function renderReport(period, grouped) {
+    document.getElementById('upload-zone').style.display = 'none';
+    const sec = document.getElementById('report-section');
+    sec.style.display = 'block';
+
+    // Period pills
+    const pd = document.getElementById('period-display');
+    const periodDates = extractPeriodDates(period);
+    if (periodDates) {
+      pd.innerHTML = `
+        <div class="period-block fade-in">
+          <div class="period-pill">
+            <span class="pill-label">Desde</span>
+            <span class="pill-value">${periodDates.from}</span>
+          </div>
+          <div class="period-pill">
+            <span class="pill-label">Hasta</span>
+            <span class="pill-value">${periodDates.to}</span>
+          </div>
+        </div>`;
+    } else if (period) {
+      pd.innerHTML = `<div class="period-block fade-in"><div class="period-pill"><span class="pill-label">Período</span><span class="pill-value">${period}</span></div></div>`;
+    }
+
+    // Fleet summary
+    const devices = Object.keys(grouped);
+    const totalKm = devices.reduce((s, d) => s + grouped[d].reduce((a,r)=>a+r.km,0), 0);
+    const allDates = new Set();
+    devices.forEach(d => grouped[d].forEach(r => allDates.add(r.date)));
+    const days = allDates.size;
+
+    document.getElementById('fleet-summary-box').innerHTML = `
+      <div class="fleet-summary fade-in">
+        <div class="fleet-stat">
+          <span class="num">${devices.length}</span>
+          <span class="lbl">Vehículos</span>
+        </div>
+        <div class="fleet-divider"></div>
+        <div class="fleet-stat">
+          <span class="num">${days}</span>
+          <span class="lbl">Días reportados</span>
+        </div>
+        <div class="fleet-divider"></div>
+        <div class="fleet-stat">
+          <span class="num">${totalKm.toFixed(1)} km</span>
+          <span class="lbl">Total flota</span>
+        </div>
+        <div class="fleet-divider"></div>
+        <div class="fleet-stat">
+          <span class="num">${(totalKm / devices.length).toFixed(1)} km</span>
+          <span class="lbl">Promedio por unidad</span>
+        </div>
+      </div>
+    `;
+
+    // Vehicle cards
+    const container = document.getElementById('vehicles-container');
+    container.innerHTML = '';
+
+    devices.forEach((device, idx) => {
+      const rows = grouped[device];
+      const total = rows.reduce((s,r) => s + r.km, 0);
+      const maxKm = Math.max(...rows.map(r => r.km));
+
+      const card = document.createElement('div');
+      card.className = 'vehicle-card fade-in';
+      card.style.animationDelay = `${idx * 60}ms`;
+
+      const rowsHtml = rows.map(r => {
+        const pct = maxKm > 0 ? (r.km / maxKm * 100).toFixed(1) : 0;
+        const dateFormatted = formatDate(r.date);
+        return `
+          <tr>
+            <td class="date-col">${dateFormatted}</td>
+            <td>
+              <div class="km-bar-wrap">
+                <div class="km-bar"><div class="km-bar-fill" style="width:${pct}%"></div></div>
+                <span class="km-col" style="font-family:'DM Mono',monospace;font-size:.9rem;font-weight:500;">${r.km.toFixed(2)} km</span>
+              </div>
+            </td>
+          </tr>`;
+      }).join('');
+
+      card.innerHTML = `
+        <div class="vehicle-header">
+          <span class="vehicle-name">${device}</span>
+          <div class="vehicle-total">
+            ${total.toFixed(2)} km
+            <span>Total semana</span>
+          </div>
+        </div>
+        <table class="daily-table">
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Kilometraje del día</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+            <tr class="summary-row">
+              <td class="summary-label">Total</td>
+              <td class="summary-km">${total.toFixed(2)} km</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+
+      container.appendChild(card);
+    });
+
+    document.getElementById('report-subtitle').textContent =
+      `${devices.length} vehículos · ${totalKm.toFixed(1)} km totales`;
+  }
+
+  function formatDate(d) {
+    const m = d.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return d;
+    const MONTHS = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    const DAYS = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const date = new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+    return `${DAYS[date.getDay()]} ${parseInt(m[3])} ${MONTHS[parseInt(m[2])-1]}`;
+  }
+
+  function formatFullDate(isoStr) {
+    // isoStr like "2026-03-23" or "2026-03-23 00:00:00"
+    const m = isoStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return isoStr;
+    const DAYS   = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const MONTHS = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+    const date = new Date(parseInt(m[1]), parseInt(m[2])-1, parseInt(m[3]));
+    return `${DAYS[date.getDay()]} ${parseInt(m[3])} de ${MONTHS[parseInt(m[2])-1]}`;
+  }
+
+  function extractPeriodDates(periodStr) {
+    // Match two ISO dates in the string
+    const matches = periodStr.match(/(\d{4}-\d{2}-\d{2})/g);
+    if (!matches || matches.length < 2) return null;
+    return { from: formatFullDate(matches[0]), to: formatFullDate(matches[1]) };
+  }
+</script>
+</body>
+</html>
