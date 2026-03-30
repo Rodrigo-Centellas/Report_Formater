@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RC Track · Reporte de Kilometraje</title>
+  <title>RCD Track · Reporte de Kilometraje</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
   <style>
@@ -360,14 +360,28 @@
   }
 
   function parseAndRender(rows) {
-    // Find period from row 2 (index 1)
+    // Find period — scan all rows/cells for two ISO dates
     let period = '';
     for (let r of rows) {
+      // Collect all date-like strings from every cell in this row
+      const allDates = [];
+      for (const cell of r) {
+        const str = String(cell);
+        const found = str.match(/\d{4}-\d{2}-\d{2}/g);
+        if (found) allDates.push(...found);
+      }
+      if (allDates.length >= 2) {
+        // Sort so earliest is first
+        allDates.sort();
+        period = `${allDates[0]} ~ ${allDates[allDates.length - 1]}`;
+        break;
+      }
+      // Also try joining all cells and searching
       const line = r.join(' ');
-      if (line.includes('Fecha de las estadísticas') || line.includes('stadística')) {
-        const m = line.match(/(\d{4}-\d{2}-\d{2}[\s\S]*?\d{4}-\d{2}-\d{2}[^\s]*)/);
-        if (m) period = m[1].replace(/\s+/g,' ').trim();
-        if (!period) period = line.replace(/Fecha de las estadísticas[:\s]*/i,'').trim();
+      const found = line.match(/\d{4}-\d{2}-\d{2}/g);
+      if (found && found.length >= 2) {
+        found.sort();
+        period = `${found[0]} ~ ${found[found.length - 1]}`;
         break;
       }
     }
