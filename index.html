@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RCD Track · Reporte de Kilometraje</title>
+  <title>JV Track · Reporte de Kilometraje</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap" rel="stylesheet" />
   <style>
@@ -276,7 +276,7 @@
 <header>
   <div class="logo-icon">📍</div>
   <div class="logo-text">
-    <strong>RCD Track</strong>
+    <strong>JV Track</strong>
     <span>Reporte de Kilometraje GPS</span>
   </div>
 </header>
@@ -391,13 +391,19 @@
     let colDevice = -1, colDate = -1, colKm = -1;
 
     for (let i = 0; i < rows.length; i++) {
-      const r = rows[i].map(c => String(c).toLowerCase());
-      const dIdx = r.findIndex(c => c.includes('nombre') && c.includes('dispositivo'));
+      const r = rows[i].map(c => String(c).toLowerCase().trim());
+      // Spanish: "nombre del dispositivo" / English: "device name"
+      const dIdx = r.findIndex(c =>
+        (c.includes('nombre') && c.includes('dispositivo')) ||
+        (c.includes('device') && c.includes('name'))
+      );
       if (dIdx >= 0) {
         headerIdx = i;
         colDevice = dIdx;
-        colDate = r.findIndex(c => c.includes('fecha'));
-        colKm = r.findIndex(c => c.includes('kilometraje') || c.includes('km'));
+        // Date column: "fecha" or "date"
+        colDate = r.findIndex(c => c === 'fecha' || c === 'date' || c.includes('fecha') || c.includes('date'));
+        // KM column: "kilometraje" or "mileage"
+        colKm = r.findIndex(c => c.includes('kilometraje') || c.includes('mileage') || (c.includes('km') && !c.includes('km/h')));
         break;
       }
     }
